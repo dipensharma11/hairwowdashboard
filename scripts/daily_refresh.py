@@ -380,10 +380,15 @@ def build_week_from_days(day_entries, pwc_daily_prod, week_days):
     admap = {}
     for d in days:
         for a in d["ads"]:
-            m = admap.setdefault(a["name"], {"a": dict(a), "sp": 0.0, "nc": 0.0, "rev": 0.0, "reg": {}})
+            m = admap.setdefault(a["name"], {"a": dict(a), "sp": 0.0, "nc": 0.0, "rev": 0.0, "reg": {},
+                                              "imp": 0, "clk": 0, "v3": 0, "v75": 0})
             m["sp"] += a["spend"] or 0
             m["nc"] += a["nc"] or 0
             m["rev"] += (a["roas"] or 0) * (a["spend"] or 0)
+            m["imp"] += a.get("imp", 0) or 0
+            m["clk"] += a.get("clk", 0) or 0
+            m["v3"] += a.get("v3", 0) or 0
+            m["v75"] += a.get("v75", 0) or 0
             if a.get("video") and not m["a"].get("video"):
                 m["a"]["video"] = a["video"]
             for s in a.get("adsets", []):
@@ -408,6 +413,11 @@ def build_week_from_days(day_entries, pwc_daily_prod, week_days):
               "funnel": base.get("funnel", ""), "creator": base.get("creator", ""),
               "language": base.get("language", ""),
               "region": regs[0][0] if regs else "", "adsets": adsets}
+        if m["imp"] > 0:
+            ad["imp"] = int(m["imp"])
+            ad["clk"] = int(m["clk"])
+            ad["v3"] = int(m["v3"])
+            ad["v75"] = int(m["v75"])
         if base.get("video"):
             ad["video"] = base["video"]
         ads.append(ad)
@@ -471,7 +481,9 @@ def main():
         if len(r) < 29 or not r[0] or not r[4]:
             continue
         dd_rows.append((r[0], r[4], r[6], r[21] if len(r) > 21 else "", r[25] if len(r) > 25 else 0,
-                         r[28] if len(r) > 28 else 0))
+                         r[28] if len(r) > 28 else 0,
+                         r[7] if len(r) > 7 else 0, r[8] if len(r) > 8 else 0,
+                         r[13] if len(r) > 13 else 0, r[16] if len(r) > 16 else 0))
     print(f"DD rows loaded: {len(dd_rows)}")
     days_present = sorted({pday(r[0]) for r in dd_rows if pday(r[0])})
     if not days_present:
@@ -488,10 +500,11 @@ def main():
         prodtot = defaultdict(float)
         narr_cr = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: [0.0, 0.0])))
 
-        for dt_raw, name, spend_s, adid, nc_s, sum_s in dd_rows:
+        for dt_raw, name, spend_s, adid, nc_s, sum_s, imp_s, clk_s, v3_s, v75_s in dd_rows:
             if pday(dt_raw) != day:
                 continue
             sp, nc, sm = num(spend_s), num(nc_s), num(sum_s)
+            imp, clk, v3, v75 = num(imp_s), num(clk_s), num(v3_s), num(v75_s)
             adid = str(adid).strip()
             dm = lookup(name, exact, bynum)
             if dm:
@@ -524,6 +537,10 @@ def main():
             a["sp"] += sp
             a["nc"] += nc
             a["sum"] += sm
+            a["imp"] = a.get("imp", 0) + imp
+            a["clk"] = a.get("clk", 0) + clk
+            a["v3"] = a.get("v3", 0) + v3
+            a["v75"] = a.get("v75", 0) + v75
             a["dims"] = dm
             br = a["byreg"][reg]
             br[0] += sp
@@ -561,6 +578,11 @@ def main():
                       "format": dm.get("format", "") or "", "source": dm.get("source", "") or "",
                       "funnel": dm.get("funnel", "") or "", "creator": dm.get("creator", "") or "",
                       "language": dm.get("language", "") or "", "region": dom, "adsets": adsets}
+                if a.get("imp", 0) > 0:
+                    ad["imp"] = int(a["imp"])
+                    ad["clk"] = int(a.get("clk", 0))
+                    ad["v3"] = int(a.get("v3", 0))
+                    ad["v75"] = int(a.get("v75", 0))
                 if dm.get("video"):
                     ad["video"] = dm["video"]
                 ads.append(ad)
