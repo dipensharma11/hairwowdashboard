@@ -40,6 +40,14 @@ DASH = ["Stage 2", "Stage 3", "Advance Regime", "Beard Growth Kit", "Shilajit Gu
         "Stage 1 Serum", "Biotin Gummies", "Magnesium Gummies", "Creatine Powder",
         "Creatine Electrolyte", "AI Hair Test"]
 
+ACCOUNT_MAP = {
+    "MM25": "920799776816968", "Nutrition25": "2080540322400218",
+    "OTC Products": "306574193752207", "Man Matters": "231144852368565",
+    "Man Matters - PM": "231144852368565", "MMASC25": "1220984496731729",
+    "Mosaic X Payu Collab - Man Matters": "1381759229999299", "MM.in": "2203695220449210",
+}
+
+
 PRODMAP = {
     "stage 2": "Stage 2", "stage2": "Stage 2", "stage 3": "Stage 3", "stage3": "Stage 3",
     "advance regime": "Advance Regime", "cetosomal": "Advance Regime", "stage 3 (cetosomal)": "Advance Regime",
@@ -391,6 +399,8 @@ def build_week_from_days(day_entries, pwc_daily_prod, week_days):
             m["v75"] += a.get("v75", 0) or 0
             for i in a.get("ids", []):
                 m.setdefault("ids", {})[i] = 1
+            for i, acc in a.get("idaccts", {}).items():
+                m.setdefault("idaccts", {})[i] = acc
             if a.get("video") and not m["a"].get("video"):
                 m["a"]["video"] = a["video"]
             for s in a.get("adsets", []):
@@ -425,6 +435,8 @@ def build_week_from_days(day_entries, pwc_daily_prod, week_days):
             ad["v75"] = int(m["v75"])
         if m.get("ids"):
             ad["ids"] = sorted(m["ids"])
+        if m.get("idaccts"):
+            ad["idaccts"] = m["idaccts"]
         if base.get("video"):
             ad["video"] = base["video"]
         ads.append(ad)
@@ -490,7 +502,8 @@ def main():
         dd_rows.append((r[0], r[4], r[6], r[21] if len(r) > 21 else "", r[25] if len(r) > 25 else 0,
                          r[28] if len(r) > 28 else 0,
                          r[7] if len(r) > 7 else 0, r[8] if len(r) > 8 else 0,
-                         r[13] if len(r) > 13 else 0, r[16] if len(r) > 16 else 0))
+                         r[13] if len(r) > 13 else 0, r[16] if len(r) > 16 else 0,
+                         r[1] if len(r) > 1 else ""))
     print(f"DD rows loaded: {len(dd_rows)}")
     days_present = sorted({pday(r[0]) for r in dd_rows if pday(r[0])})
     if not days_present:
@@ -507,11 +520,12 @@ def main():
         prodtot = defaultdict(float)
         narr_cr = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: [0.0, 0.0])))
 
-        for dt_raw, name, spend_s, adid, nc_s, sum_s, imp_s, clk_s, v3_s, v75_s in dd_rows:
+        for dt_raw, name, spend_s, adid, nc_s, sum_s, imp_s, clk_s, v3_s, v75_s, acct_name in dd_rows:
             if pday(dt_raw) != day:
                 continue
             sp, nc, sm = num(spend_s), num(nc_s), num(sum_s)
             imp, clk, v3, v75 = num(imp_s), num(clk_s), num(v3_s), num(v75_s)
+            acct_id = ACCOUNT_MAP.get(str(acct_name).strip())
             adid = str(adid).strip()
             dm = lookup(name, exact, bynum)
             if dm:
@@ -551,6 +565,8 @@ def main():
             if adid:
                 a.setdefault("ids", {})[adid] = 1
                 a.setdefault("regids", {}).setdefault(reg, {})[adid] = 1
+                if acct_id:
+                    a.setdefault("idaccts", {})[adid] = acct_id
             a["dims"] = dm
             br = a["byreg"][reg]
             br[0] += sp
@@ -597,6 +613,8 @@ def main():
                     ad["v75"] = int(a.get("v75", 0))
                 if a.get("ids"):
                     ad["ids"] = sorted(a["ids"])
+                if a.get("idaccts"):
+                    ad["idaccts"] = a["idaccts"]
                 if dm.get("video"):
                     ad["video"] = dm["video"]
                 ads.append(ad)
